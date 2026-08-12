@@ -12,12 +12,18 @@ Bez konta, bez logowania, bez reklam, bez śledzenia.
 
 ## Pobieranie
 
-Najnowszą wersję znajdziesz w zakładce **[Releases](../../releases)** — plik `.apk`.
+**Jeden link, zawsze najnowsza wersja:**
 
-1. Pobierz plik na telefon (Android 8 lub nowszy).
-2. Otwórz go w menedżerze plików.
+### 📥 [Pobierz Działkomierz](https://github.com/dominikmaslak11/dzialkomierz/releases/latest/download/Dzialkomierz.apk)
+
+1. Otwórz ten link na telefonie (Android 8 lub nowszy) i pobierz plik.
+2. Otwórz pobrany plik — z paska powiadomień albo z menedżera plików.
 3. Android poprosi o zgodę na instalację z tego źródła — aplikacja nie pochodzi ze Sklepu Play,
-   więc to normalne.
+   więc to normalne. Zgadzasz się raz.
+
+Konto na GitHubie **nie jest potrzebne** — plik pobiera się bez logowania.
+
+Wszystkie wydania i opisy zmian: zakładka **[Releases](../../releases)**.
 
 Aplikacja sama sprawdza, czy jest nowsza wersja, i pomoże ją zainstalować.
 

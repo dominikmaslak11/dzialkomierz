@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover + safe-area w CSS: bez tego pasek na iPhonie zjada dolne przyciski -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b5e20">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Działkomierz">
+<title>Działkomierz</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="ikona-180.png">
+<style>
+:root {
+  --zielen: #1b5e20;
+  --zielen-jasna: #2e7d32;
+  --tlo: #fafafa;
+  --tekst: #1a1a1a;
+  --szara: #666;
+  --obrys: #ffd600;
+  --dzialka: #29b6f6;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0; height: 100%; overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--tekst); background: var(--tlo);
+  /* Bez tego długie przytrzymanie na mapie zaznacza tekst zamiast rysować */
+  -webkit-user-select: none; user-select: none;
+  /* Blokuje „ciągnięcie w dół odświeża stronę" w środku pomiaru */
+  overscroll-behavior: none;
+}
+#mapa { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+
+/* ————— górny pasek z wynikiem ————— */
+#wynik {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: calc(env(safe-area-inset-top) + 10px) 14px 12px;
+  background: linear-gradient(to bottom, rgba(0,0,0,.72), rgba(0,0,0,0));
+  color: #fff; pointer-events: none;
+}
+#powierzchnia { font-size: 30px; font-weight: 700; line-height: 1.1; }
+#szczegoly { font-size: 14px; opacity: .9; margin-top: 3px; }
+#dzialka-opis { font-size: 14px; margin-top: 6px; opacity: .95; }
+
+/* ————— dolne przyciski ————— */
+#pasek {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 10px 10px calc(env(safe-area-inset-bottom) + 10px);
+  display: flex; gap: 8px; justify-content: center;
+  background: linear-gradient(to top, rgba(0,0,0,.6), rgba(0,0,0,0));
+}
+button {
+  flex: 1 1 0; min-height: 62px; max-width: 130px;
+  border: none; border-radius: 14px;
+  background: rgba(255,255,255,.94); color: var(--tekst);
+  font-size: 14px; font-weight: 600; line-height: 1.15;
+  padding: 6px 4px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+button:active { background: #e0e0e0; }
+button:disabled { opacity: .45; }
+button.glowny { background: var(--zielen); color: #fff; }
+button.glowny:active { background: var(--zielen-jasna); }
+.ikona { display: block; font-size: 21px; margin-bottom: 2px; }
+
+/* ————— komunikat ————— */
+#komunikat {
+  position: absolute; left: 12px; right: 12px; bottom: 108px;
+  background: rgba(0,0,0,.85); color: #fff;
+  padding: 12px 14px; border-radius: 12px; font-size: 15px; line-height: 1.35;
+  display: none;
+}
+#komunikat.widoczny { display: block; }
+
+/* ————— ekran powitalny ————— */
+#powitanie {
+  position: absolute; inset: 0; background: var(--zielen); color: #fff;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 26px; text-align: center; z-index: 10;
+}
+#powitanie h1 { font-size: 34px; margin: 0 0 6px; }
+#powitanie p { font-size: 16px; line-height: 1.5; opacity: .95; margin: 0 0 14px; }
+/* flex: 0 0 auto jest tu konieczne, nie ozdobne. Przyciski dolnego paska mają `flex: 1 1 0`,
+   żeby dzieliły szerokość po równo — ale powitanie układa się w kolumnę, więc ta sama reguła
+   rozciągała przycisk na pół ekranu w pionie. */
+#powitanie button { flex: 0 0 auto; max-width: none; background: #fff; color: var(--zielen); margin-top: 10px; }
+#powitanie .drobne { font-size: 13px; opacity: .8; margin-top: 18px; }
+</style>
+</head>
+<body>
+
+<canvas id="mapa"></canvas>
+
+<div id="wynik">
+  <div id="powierzchnia">—</div>
+  <div id="szczegoly"></div>
+  <div id="dzialka-opis"></div>
+</div>
+
+<div id="komunikat"></div>
+
+<div id="pasek">
+  <button id="btn-gdzie" class="glowny"><span class="ikona">📍</span>Gdzie jestem</button>
+  <button id="btn-cofnij" disabled><span class="ikona">↩︎</span>Cofnij punkt</button>
+  <button id="btn-wyczysc" disabled><span class="ikona">🗑</span>Wyczyść</button>
+  <button id="btn-udostepnij" disabled><span class="ikona">📤</span>Udostępnij</button>
+</div>
+
+<div id="powitanie">
+  <h1>Działkomierz</h1>
+  <p><b>Dotykaj mapy po kolei w rogach pola.</b> Powierzchnia liczy się sama.<br>
+     Mapę przesuwasz przeciągnięciem, przybliżasz dwoma palcami.</p>
+  <p><b>Gdzie jestem</b> pokaże działkę, na której stoisz — razem z jej numerem i powierzchnią
+     z ewidencji gruntów.</p>
+  <button id="btn-start" class="glowny">Zaczynamy</button>
+  <div class="drobne">Zdjęcia lotnicze i dane działek: GUGiK (geoportal.gov.pl)</div>
+</div>
+
+<!-- Kolejność jest istotna, nie kosmetyczna: rdzeń szuka biblioteki Kotlina w chwili wczytania
+     i przy odwrotnej kolejności wywala się na „dependency 'kotlin-kotlin-stdlib' was not found",
+     a za nim wszystko dalej. -->
+<script src="kotlin-kotlin-stdlib.js"></script>
+<script src="kotlin_org_jetbrains_kotlin_kotlin_dom_api_compat.js"></script>
+<script src="AgroErpMobile-geo-shared.js"></script>
+<script src="mapa.js"></script>
+<script src="dzialkomierz.js"></script>
+</body>
+</html>

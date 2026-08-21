@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Ikona mówi, co program robi: obrys pola z punktami w rogach, na zielonym tle.
+       Bez napisu — przy 48 px na ekranie telefonu litery i tak zlewają się w plamę. -->
+  <rect width="512" height="512" rx="112" fill="#1b5e20"/>
+  <path d="M104 356 L168 158 L392 196 L344 388 Z"
+        fill="rgba(255,214,0,.20)" stroke="#ffd600" stroke-width="20"
+        stroke-linejoin="round"/>
+  <g fill="#ffffff" stroke="#1b5e20" stroke-width="8">
+    <circle cx="104" cy="356" r="26"/>
+    <circle cx="168" cy="158" r="26"/>
+    <circle cx="392" cy="196" r="26"/>
+    <circle cx="344" cy="388" r="26"/>
+  </g>
+</svg>

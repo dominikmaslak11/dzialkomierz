@@ -1,0 +1,17 @@
+{
+  "name": "Działkomierz",
+  "short_name": "Działkomierz",
+  "description": "Pomiar powierzchni pola na zdjęciu lotniczym, z rozpoznaniem działki z ewidencji gruntów.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1b5e20",
+  "theme_color": "#1b5e20",
+  "lang": "pl",
+  "icons": [
+    { "src": "ikona-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "ikona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "ikona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

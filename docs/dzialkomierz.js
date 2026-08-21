@@ -1,6 +1,6 @@
 'use strict';
 //
-// Działkomierz — pomiar powierzchni pola na zdjęciu lotniczym.
+// Działkomierz — rozpoznawanie działek i pomiar powierzchni pola na zdjęciu lotniczym.
 //
 // Objazdu GPS **celowo tu nie ma**. Safari na iPhonie przestaje śledzić pozycję przy wygaszonym
 // ekranie i po przełączeniu na inną aplikację, a pomiar, który po cichu przestaje zbierać punkty
@@ -9,6 +9,9 @@
 
 const el = (id) => document.getElementById(id);
 const mapa = new Mapa(el('mapa'));
+
+/** 'dzialki' — dotknięcie mapy dokłada działkę z ewidencji; 'rysowanie' — dotknięcie stawia punkt. */
+let tryb = 'dzialki';
 
 // ————— formatowanie —————
 
@@ -20,22 +23,18 @@ const mapa = new Mapa(el('mapa'));
  */
 function opiszPowierzchnie(m2) {
   if (m2 < 1000) return `${Math.round(m2)} m²`;
-  const ha = m2 / 10000;
-  return `${ha.toFixed(2).replace('.', ',')} ha`;
+  return `${(m2 / 10000).toFixed(2).replace('.', ',')} ha`;
 }
 
 /** Polska odmiana po liczbie: 1 punkt, 2–4 punkty, 5+ punktów (i 12–14 punktów, nie punkty). */
-function odmienPunkty(n) {
-  if (n === 1) return 'punkt';
-  const dwie = n % 100;
-  const jedna = n % 10;
-  return (jedna >= 2 && jedna <= 4 && !(dwie >= 12 && dwie <= 14)) ? 'punkty' : 'punktów';
+function odmien(n, poj, kilka, wiele) {
+  if (n === 1) return poj;
+  const dwie = n % 100, jedna = n % 10;
+  return (jedna >= 2 && jedna <= 4 && !(dwie >= 12 && dwie <= 14)) ? kilka : wiele;
 }
 
 function opiszDlugosc(m) {
-  return m < 1000
-    ? `${Math.round(m)} m`
-    : `${(m / 1000).toFixed(2).replace('.', ',')} km`;
+  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2).replace('.', ',')} km`;
 }
 
 function komunikat(tekst, sekund = 5) {
@@ -46,7 +45,7 @@ function komunikat(tekst, sekund = 5) {
   if (sekund) komunikat._t = setTimeout(() => k.classList.remove('widoczny'), sekund * 1000);
 }
 
-// ————— pomiar —————
+function schowajKomunikat() { el('komunikat').classList.remove('widoczny'); }
 
 function plaskaTablica(punkty) {
   const t = new Float64Array(punkty.length * 2);
@@ -54,43 +53,7 @@ function plaskaTablica(punkty) {
   return t;
 }
 
-function przelicz() {
-  const p = mapa.obrys;
-  el('btn-cofnij').disabled = p.length === 0;
-  el('btn-wyczysc').disabled = p.length === 0 && !mapa.dzialka;
-  el('btn-udostepnij').disabled = p.length < 3;
-
-  if (p.length < 3) {
-    el('powierzchnia').textContent = p.length === 0 ? '—' : `${p.length} ${odmienPunkty(p.length)}`;
-    el('szczegoly').textContent = p.length === 0
-      ? 'Dotykaj mapy w rogach pola'
-      : 'Potrzebne co najmniej trzy punkty';
-    return;
-  }
-
-  const plaska = plaskaTablica(p);
-  const m2 = Geo.areaM2(plaska);
-  const obwod = Geo.perimeterM(plaska);
-
-  el('powierzchnia').textContent = opiszPowierzchnie(m2);
-  el('szczegoly').textContent = `obwód ${opiszDlugosc(obwod)} · ${p.length} ${odmienPunkty(p.length)} · ${Math.round(m2)} m²`;
-
-  // Obrys, którego boki się przecinają, ma powierzchnię policzoną, ale bez sensu — część pola
-  // liczy się wtedy na minus. Lepiej powiedzieć wprost niż pokazać wiarygodnie wyglądającą liczbę.
-  if (Geo.selfIntersects(plaska)) {
-    komunikat('Linie obrysu przecinają się — powierzchnia będzie błędna. Cofnij ostatni punkt.', 0);
-  } else {
-    el('komunikat').classList.remove('widoczny');
-  }
-}
-
-mapa.przyKliknieciu = (punkt) => {
-  mapa.obrys.push(punkt);
-  przelicz();
-  mapa.rysuj();
-};
-
-// ————— gdzie jestem + działka z ewidencji —————
+// ————— rozmowa z rejestrami GUGiK —————
 
 /** `SRID=2180;POLYGON((e n,e n,...))` → lista punktów. Pierścień wewnętrzny pomijamy — do obrysu
  *  działki potrzebny jest tylko zewnętrzny. */
@@ -104,57 +67,238 @@ function czytajWkt(wkt) {
   return punkty.some(p => !isFinite(p.e) || !isFinite(p.n)) ? null : punkty;
 }
 
-async function pobierzDzialke(e, n) {
-  const adres = 'https://uldk.gugik.gov.pl/?request=GetParcelByXY' +
-    `&xy=${e.toFixed(2)},${n.toFixed(2)}&result=id,commune,region,parcel,geom_wkt&srid=2180`;
-  const odp = await fetch(adres);
-  const tekst = await odp.text();
-  const linie = tekst.trim().split('\n');
-  // Pierwsza linia to status: "0" znaczy dobrze, "-1 …" znaczy, że nie ma tam działki. Format
-  // jest tekstowy, nie JSON — to nie pomyłka, tak ta usługa odpowiada.
+/** Wspólny kształt odpowiedzi ULDK: `id|gmina|obręb|numer|geom_wkt`, poprzedzony linią stanu. */
+function czytajDzialke(tekst) {
+  const linie = (tekst || '').trim().split('\n');
+  // Pierwsza linia to stan: „0" znaczy dobrze, „-1 …" że nie znaleziono. Odpowiedź jest tekstowa,
+  // nie JSON — to nie pomyłka, tak ta usługa mówi.
   if (linie[0].trim() !== '0') return null;
   const pola = (linie[1] || '').split('|');
   if (pola.length < 5) return null;
+  const obrys = czytajWkt(pola[4]);
   return {
-    numer: pola[3],
+    id: pola[0],
     gmina: pola[1],
     obreb: pola[2],
-    obrys: czytajWkt(pola[4]),
+    numer: pola[3],
+    obrys,
+    m2: obrys ? Geo.areaM2(plaskaTablica(obrys)) : null,
   };
 }
 
-el('btn-gdzie').addEventListener('click', () => {
-  if (!navigator.geolocation) {
-    komunikat('Ta przeglądarka nie udostępnia położenia.');
+const POLA_ULDK = 'id,commune,region,parcel,geom_wkt';
+
+async function dzialkaWPunkcie(e, n) {
+  const odp = await fetch('https://uldk.gugik.gov.pl/?request=GetParcelByXY' +
+    `&xy=${e.toFixed(2)},${n.toFixed(2)}&result=${POLA_ULDK}&srid=2180`);
+  return czytajDzialke(await odp.text());
+}
+
+async function dzialkaPoNumerze(id) {
+  const odp = await fetch('https://uldk.gugik.gov.pl/?request=GetParcelById' +
+    `&id=${encodeURIComponent(id)}&result=${POLA_ULDK}&srid=2180`);
+  return czytajDzialke(await odp.text());
+}
+
+/**
+ * Adresy z Państwowego Rejestru Granic.
+ *
+ * Usługa wymaga przecinka między miejscowością a ulicą i **bez niego zwraca zero wyników** —
+ * co czyta się jak „nie ma takiego adresu", a nie „zły separator". Dlatego zgadujemy za człowieka:
+ * najpierw to, co wpisał, potem przecinek po pierwszym słowie (Kalisz, Dobrzecka 193), a na końcu
+ * przed ulicą z numerem (Nowe Miasto, Dobrzecka 193).
+ */
+function wariantyZapytania(q) {
+  const t = q.trim();
+  if (!t || t.includes(',')) return t ? [t] : [];
+  const slowa = t.split(/\s+/);
+  if (slowa.length < 3) return [t];
+  return [...new Set([
+    t,
+    `${slowa[0]}, ${slowa.slice(1).join(' ')}`,
+    `${slowa.slice(0, -2).join(' ')}, ${slowa.slice(-2).join(' ')}`,
+  ])];
+}
+
+async function szukajAdresu(q) {
+  for (const wariant of wariantyZapytania(q)) {
+    const odp = await fetch('https://services.gugik.gov.pl/uug/?request=GetAddress&address=' +
+      encodeURIComponent(wariant));
+    let dane;
+    try { dane = await odp.json(); } catch { continue; }   // pudło bywa zwykłym tekstem, nie JSON-em
+    const wyniki = dane && dane.results;
+    if (!wyniki) continue;
+    const lista = Object.values(wyniki).map(w => ({
+      miasto: w.city || '',
+      ulica: (w.street && w.street !== 'null') ? w.street : '',
+      numer: (w.number && w.number !== 'null') ? w.number : '',
+      kod: (w.code && w.code !== 'null') ? w.code : '',
+      e: Number(w.x),
+      n: Number(w.y),
+    })).filter(w => isFinite(w.e) && isFinite(w.n));
+    if (lista.length) return lista.slice(0, 8);
+  }
+  return [];
+}
+
+// ————— zestaw działek —————
+
+function sumaDzialek() {
+  return mapa.dzialki.reduce((s, d) => s + (d.m2 || 0), 0);
+}
+
+function odswiezListeDzialek() {
+  const lista = el('lista-dzialek');
+  lista.innerHTML = '';
+  lista.classList.toggle('widoczna', mapa.dzialki.length > 0 && tryb === 'dzialki');
+  mapa.dzialki.forEach((d, i) => {
+    const w = document.createElement('div');
+    w.className = 'wiersz-dzialki';
+    const nazwa = document.createElement('div');
+    nazwa.className = 'nazwa';
+    nazwa.textContent = `${d.numer} · ${d.obreb}`;
+    const pole = document.createElement('div');
+    pole.className = 'pole';
+    pole.textContent = d.m2 ? opiszPowierzchnie(d.m2) : '—';
+    const usun = document.createElement('button');
+    usun.className = 'usun';
+    usun.textContent = '✕';
+    usun.setAttribute('aria-label', `Usuń działkę ${d.numer}`);
+    usun.addEventListener('click', () => {
+      mapa.dzialki.splice(i, 1);
+      przelicz();
+      mapa.rysuj();
+    });
+    w.append(nazwa, pole, usun);
+    lista.append(w);
+  });
+}
+
+/** Dokłada działkę do zestawu albo — jeśli już w nim jest — wyjmuje ją. */
+function przelaczDzialke(d) {
+  const i = mapa.dzialki.findIndex(x => x.id === d.id);
+  if (i >= 0) {
+    mapa.dzialki.splice(i, 1);
+    komunikat(`Wyjęto działkę ${d.numer}.`, 3);
+  } else {
+    mapa.dzialki.push(d);
+    // Bez tej informacji dokładanie działek jest ruchem w ciemno — człowiek widzi tylko, że coś
+    // się podświetliło, a interesuje go, ile tego już ma razem.
+    komunikat(mapa.dzialki.length === 1
+      ? `Działka ${d.numer}: ${opiszPowierzchnie(d.m2 || 0)}. Dotykaj kolejnych — zsumują się.`
+      : `Dołożono ${d.numer}. Razem ${opiszPowierzchnie(sumaDzialek())} z ${mapa.dzialki.length} działek.`, 4);
+  }
+  przelicz();
+  mapa.rysuj();
+}
+
+// ————— wynik na górze —————
+
+function przelicz() {
+  const p = mapa.obrys;
+  const d = mapa.dzialki;
+  el('btn-cofnij').disabled = tryb === 'rysowanie' ? p.length === 0 : d.length === 0;
+  el('btn-wyczysc').disabled = p.length === 0 && d.length === 0;
+  el('btn-udostepnij').disabled = p.length < 3 && d.length === 0;
+  odswiezListeDzialek();
+
+  // Obrys ręczny ma pierwszeństwo w nagłówku: jeśli ktoś go rysuje, to jego właśnie liczy.
+  if (p.length >= 3) {
+    const plaska = plaskaTablica(p);
+    const m2 = Geo.areaM2(plaska);
+    el('powierzchnia').textContent = opiszPowierzchnie(m2);
+    el('szczegoly').textContent =
+      `obwód ${opiszDlugosc(Geo.perimeterM(plaska))} · ${p.length} ${odmien(p.length, 'punkt', 'punkty', 'punktów')} · ${Math.round(m2)} m²`;
+    // Obrys, którego boki się przecinają, ma powierzchnię policzoną, ale bez sensu — część pola
+    // liczy się wtedy na minus. Lepiej powiedzieć wprost niż pokazać wiarygodnie wyglądającą liczbę.
+    if (Geo.selfIntersects(plaska)) {
+      komunikat('Linie obrysu przecinają się — powierzchnia będzie błędna. Cofnij ostatni punkt.', 0);
+    }
+    el('dzialka-opis').textContent = d.length
+      ? `oraz ${d.length} ${odmien(d.length, 'działka', 'działki', 'działek')} z ewidencji: ${opiszPowierzchnie(sumaDzialek())}`
+      : '';
     return;
   }
+
+  if (p.length > 0) {
+    el('powierzchnia').textContent = `${p.length} ${odmien(p.length, 'punkt', 'punkty', 'punktów')}`;
+    el('szczegoly').textContent = 'Potrzebne co najmniej trzy punkty';
+    return;
+  }
+
+  if (d.length > 0) {
+    el('powierzchnia').textContent = opiszPowierzchnie(sumaDzialek());
+    el('szczegoly').textContent =
+      `${d.length} ${odmien(d.length, 'działka', 'działki', 'działek')} z ewidencji · ${Math.round(sumaDzialek())} m²`;
+    el('dzialka-opis').textContent = d.length === 1
+      ? `${d[0].numer} · obręb ${d[0].obreb} · gm. ${d[0].gmina}`
+      : '';
+    return;
+  }
+
+  el('powierzchnia').textContent = '—';
+  el('szczegoly').textContent = tryb === 'dzialki'
+    ? 'Dotykaj działek na mapie — zsumują się'
+    : 'Dotykaj mapy w rogach pola';
+  el('dzialka-opis').textContent = '';
+}
+
+// ————— dotknięcie mapy —————
+
+mapa.przyKliknieciu = async (punkt) => {
+  if (tryb === 'rysowanie') {
+    schowajKomunikat();
+    mapa.obrys.push(punkt);
+    przelicz();
+    mapa.rysuj();
+    return;
+  }
+  komunikat('Sprawdzam działkę…', 0);
+  try {
+    const d = await dzialkaWPunkcie(punkt.e, punkt.n);
+    if (!d) { komunikat('W tym miejscu ewidencja nie ma działki.'); return; }
+    przelaczDzialke(d);
+  } catch {
+    komunikat('Rejestr działek nie odpowiada. Spróbuj za chwilę.');
+  }
+};
+
+// ————— tryby —————
+
+function ustawTryb(nowy) {
+  tryb = nowy;
+  el('tryb-dzialki').classList.toggle('wybrany', nowy === 'dzialki');
+  el('tryb-rysowanie').classList.toggle('wybrany', nowy === 'rysowanie');
+  przelicz();
+  mapa.rysuj();
+}
+el('tryb-dzialki').addEventListener('click', () => ustawTryb('dzialki'));
+el('tryb-rysowanie').addEventListener('click', () => {
+  ustawTryb('rysowanie');
+  komunikat('Dotykaj rogów pola po kolei. Granice z ewidencji zostają widoczne jako podkład.', 6);
+});
+
+// ————— gdzie jestem —————
+
+el('btn-gdzie').addEventListener('click', () => {
+  if (!navigator.geolocation) { komunikat('Ta przeglądarka nie udostępnia położenia.'); return; }
   komunikat('Szukam położenia…', 0);
   navigator.geolocation.getCurrentPosition(async (poz) => {
     const [e, n] = Geo.toEastingNorthing(poz.coords.latitude, poz.coords.longitude);
     mapa.pozycja = { e, n, dokladnosc: poz.coords.accuracy || 0 };
     mapa.ustawSrodek(e, n, Math.min(mapa.mNaPx, 1.0));
-
     komunikat('Sprawdzam działkę w ewidencji…', 0);
     try {
-      const d = await pobierzDzialke(e, n);
-      if (!d) {
-        komunikat('Tu nie ma działki w ewidencji — albo jesteś poza Polską.');
-        el('dzialka-opis').textContent = '';
-        return;
-      }
-      mapa.dzialka = d.obrys;
-      if (d.obrys) {
-        mapa.pokazObszar(d.obrys);
-        const powierzchnia = Geo.areaM2(plaskaTablica(d.obrys));
-        el('dzialka-opis').textContent =
-          `Działka ${d.numer} · obręb ${d.obreb} · gm. ${d.gmina} — ${opiszPowierzchnie(powierzchnia)} wg ewidencji`;
-      }
-      el('btn-wyczysc').disabled = false;
-      komunikat('Niebieski obrys to granice z ewidencji. Żółty rysujesz sam.', 6);
-    } catch (blad) {
+      const d = await dzialkaWPunkcie(e, n);
+      if (!d) { komunikat('Tu nie ma działki w ewidencji — albo jesteś poza Polską.'); return; }
+      if (d.obrys) mapa.pokazObszar(d.obrys);
+      if (!mapa.dzialki.some(x => x.id === d.id)) mapa.dzialki.push(d);
+      przelicz();
+      mapa.rysuj();
+      komunikat(`Stoisz na działce ${d.numer} — ${opiszPowierzchnie(d.m2 || 0)} wg ewidencji.`, 6);
+    } catch {
       komunikat('Nie udało się pobrać działki — brak połączenia albo usługa GUGiK nie odpowiada.');
     }
-    mapa.rysuj();
   }, (blad) => {
     komunikat(blad.code === blad.PERMISSION_DENIED
       ? 'Odmówiono dostępu do położenia. Włącz je dla tej strony w ustawieniach przeglądarki.'
@@ -162,36 +306,146 @@ el('btn-gdzie').addEventListener('click', () => {
   }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 10000 });
 });
 
-// ————— przyciski —————
+// ————— szukanie —————
+
+/**
+ * Czy to wygląda na numer działki z ewidencji, a nie na adres.
+ *
+ * Pełny identyfikator ma postać `100705_2.0018.235` — kod gminy, obręb i numer rozdzielone
+ * kropkami. Rozpoznajemy go po tym wzorcu zamiast pytać człowieka, co wpisał, bo pytanie
+ * „adres czy numer działki?" przed każdym szukaniem byłoby dokładnie tą jedną decyzją za dużo.
+ */
+function wygladaNaNumerDzialki(q) {
+  return /^[0-9]{4,8}_[0-9A-Za-z]+\.[0-9A-Za-z]+(\.[0-9A-Za-z/]+)?$/.test(q.trim());
+}
+
+function pokazSzukajke(pokaz) {
+  el('szukajka').classList.toggle('widoczna', pokaz);
+  if (pokaz) el('pole-szukaj').focus();
+  else el('podpowiedzi').innerHTML = '';
+}
+
+el('btn-szukaj').addEventListener('click', () => pokazSzukajke(true));
+el('btn-szukaj-zamknij').addEventListener('click', () => pokazSzukajke(false));
+
+/** Wspólne dla wszystkich dróg dojścia do działki: pokaż ją, dołóż do zestawu, przelicz. */
+function przyjmijDzialke(d, opisPrefiks) {
+  if (d.obrys) mapa.pokazObszar(d.obrys);
+  if (!mapa.dzialki.some(x => x.id === d.id)) mapa.dzialki.push(d);
+  przelicz();
+  mapa.rysuj();
+  komunikat(`${opisPrefiks}${d.numer} · obręb ${d.obreb} · gm. ${d.gmina} — ${opiszPowierzchnie(d.m2 || 0)}`, 7);
+}
+
+async function wykonajSzukanie() {
+  const q = el('pole-szukaj').value.trim();
+  if (!q) return;
+  const podp = el('podpowiedzi');
+  podp.innerHTML = '<div class="podpowiedz">Szukam…</div>';
+
+  if (wygladaNaNumerDzialki(q)) {
+    try {
+      const d = await dzialkaPoNumerze(q);
+      if (!d) { podp.innerHTML = '<div class="podpowiedz">Nie ma takiej działki w ewidencji.</div>'; return; }
+      pokazSzukajke(false);
+      przyjmijDzialke(d, 'Działka ');
+    } catch {
+      podp.innerHTML = '<div class="podpowiedz">Rejestr działek nie odpowiada.</div>';
+    }
+    return;
+  }
+
+  let trafienia;
+  try { trafienia = await szukajAdresu(q); }
+  catch { podp.innerHTML = '<div class="podpowiedz">Wyszukiwarka adresów nie odpowiada.</div>'; return; }
+
+  if (!trafienia.length) {
+    podp.innerHTML = '<div class="podpowiedz">Nic nie znalazłem.' +
+      '<div class="drobne">Spróbuj „miejscowość, ulica numer" albo wpisz numer działki, ' +
+      'na przykład 100705_2.0018.235.</div></div>';
+    return;
+  }
+
+  podp.innerHTML = '';
+  for (const t of trafienia) {
+    const w = document.createElement('div');
+    w.className = 'podpowiedz';
+    const glowny = document.createElement('div');
+    glowny.textContent = [t.ulica, t.numer].filter(Boolean).join(' ') || t.miasto;
+    const drugi = document.createElement('div');
+    drugi.className = 'drobne';
+    drugi.textContent = [t.kod, t.miasto].filter(Boolean).join(' ');
+    w.append(glowny, drugi);
+    w.addEventListener('click', async () => {
+      pokazSzukajke(false);
+      mapa.ustawSrodek(t.e, t.n, 0.5);
+      // Sam adres to tylko punkt — a szuka się go zwykle po to, żeby zobaczyć działkę pod nim.
+      try {
+        const d = await dzialkaWPunkcie(t.e, t.n);
+        if (d) przyjmijDzialke(d, 'Pod tym adresem: działka ');
+      } catch { /* sam adres i tak został pokazany */ }
+    });
+    podp.append(w);
+  }
+}
+
+el('btn-szukaj-idz').addEventListener('click', wykonajSzukanie);
+el('pole-szukaj').addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') { ev.preventDefault(); wykonajSzukanie(); }
+});
+
+// ————— pozostałe przyciski —————
 
 el('btn-cofnij').addEventListener('click', () => {
-  mapa.obrys.pop();
+  if (tryb === 'rysowanie') mapa.obrys.pop();
+  else mapa.dzialki.pop();
+  schowajKomunikat();
   przelicz();
   mapa.rysuj();
 });
 
 el('btn-wyczysc').addEventListener('click', () => {
   mapa.obrys = [];
-  mapa.dzialka = null;
-  el('dzialka-opis').textContent = '';
+  mapa.dzialki = [];
+  schowajKomunikat();
   przelicz();
   mapa.rysuj();
 });
 
 el('btn-udostepnij').addEventListener('click', async () => {
-  const plaska = plaskaTablica(mapa.obrys);
-  const m2 = Geo.areaM2(plaska);
-  const srodek = mapa.obrys.reduce((a, p) => ({ e: a.e + p.e / mapa.obrys.length, n: a.n + p.n / mapa.obrys.length }), { e: 0, n: 0 });
-  const [lat, lon] = Geo.toLatLon(srodek.e, srodek.n);
-  const opis = el('dzialka-opis').textContent;
-  const tekst = `Pomiar: ${opiszPowierzchnie(m2)} (${Math.round(m2)} m²)\n` +
-    `Obwód: ${opiszDlugosc(Geo.perimeterM(plaska))}\n` +
-    (opis ? `${opis}\n` : '') +
-    `Środek: ${lat.toFixed(6)}, ${lon.toFixed(6)}\n` +
-    `https://www.google.com/maps?q=${lat.toFixed(6)},${lon.toFixed(6)}`;
+  const linie = [];
+  let srodek = null;
 
+  if (mapa.obrys.length >= 3) {
+    const plaska = plaskaTablica(mapa.obrys);
+    const m2 = Geo.areaM2(plaska);
+    linie.push(`Zmierzone pole: ${opiszPowierzchnie(m2)} (${Math.round(m2)} m²)`);
+    linie.push(`Obwód: ${opiszDlugosc(Geo.perimeterM(plaska))}`);
+    srodek = mapa.obrys.reduce((a, p) => ({
+      e: a.e + p.e / mapa.obrys.length, n: a.n + p.n / mapa.obrys.length,
+    }), { e: 0, n: 0 });
+  }
+
+  if (mapa.dzialki.length) {
+    linie.push(`Działki (${mapa.dzialki.length}), razem ${opiszPowierzchnie(sumaDzialek())}:`);
+    for (const d of mapa.dzialki) {
+      linie.push(`  ${d.numer}, obręb ${d.obreb}, gm. ${d.gmina} — ${opiszPowierzchnie(d.m2 || 0)}`);
+    }
+    if (!srodek && mapa.dzialki[0].obrys) {
+      const o = mapa.dzialki[0].obrys;
+      srodek = o.reduce((a, p) => ({ e: a.e + p.e / o.length, n: a.n + p.n / o.length }), { e: 0, n: 0 });
+    }
+  }
+
+  if (srodek) {
+    const [lat, lon] = Geo.toLatLon(srodek.e, srodek.n);
+    linie.push(`Środek: ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+    linie.push(`https://www.google.com/maps?q=${lat.toFixed(6)},${lon.toFixed(6)}`);
+  }
+
+  const tekst = linie.join('\n');
   if (navigator.share) {
-    try { await navigator.share({ title: 'Działkomierz — pomiar', text: tekst }); return; } catch { /* anulowane */ }
+    try { await navigator.share({ title: 'Działkomierz', text: tekst }); return; } catch { /* anulowane */ }
   }
   // Zapasowo schowek: na komputerze i w starszym Safari nie ma czym się podzielić inaczej.
   try {
@@ -201,6 +455,8 @@ el('btn-udostepnij').addEventListener('click', async () => {
     komunikat(tekst, 15);
   }
 });
+
+// ————— start —————
 
 let bylKafel = false;
 mapa.przyKafluDobrym = () => { bylKafel = true; };
@@ -219,13 +475,11 @@ el('btn-start').addEventListener('click', () => {
   }, 11000);
 });
 
-// ————— PWA —————
-
 if ('serviceWorker' in navigator) {
   // Rejestracja po załadowaniu strony, nie w trakcie: instalacja workera konkuruje wtedy
   // o łącze z pierwszymi kaflami mapy, a te są tym, na co człowiek czeka.
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* offline i tak zadziała bez tego */ });
+    navigator.serviceWorker.register('sw.js').catch(() => { /* bez tego też zadziała */ });
   });
 }
 

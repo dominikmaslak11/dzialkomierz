@@ -66,6 +66,64 @@ button.glowny { background: var(--zielen); color: #fff; }
 button.glowny:active { background: var(--zielen-jasna); }
 .ikona { display: block; font-size: 21px; margin-bottom: 2px; }
 
+/* Pięć przycisków w rzędzie na wąskim telefonie: mniejsza czcionka i niższy przycisk, żeby
+   napisy się nie ucinały. „Serwi" zamiast „Serwis" już raz nas kosztowało zgłoszenie. */
+#pasek button { font-size: 12.5px; min-height: 58px; max-width: none; }
+#pasek .ikona { font-size: 19px; }
+
+/* ————— przełącznik trybu ————— */
+#tryby {
+  position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 82px);
+  display: flex; gap: 6px; justify-content: center; padding: 0 12px;
+}
+.tryb {
+  flex: 0 1 160px; min-height: 40px; max-width: 170px;
+  background: rgba(255,255,255,.88); color: var(--szara);
+  font-size: 14px; border-radius: 20px; box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+.tryb.wybrany { background: var(--zielen); color: #fff; }
+
+/* ————— szukanie ————— */
+#szukajka {
+  position: absolute; left: 8px; right: 8px; top: calc(env(safe-area-inset-top) + 8px);
+  display: none; gap: 6px; flex-wrap: wrap;
+  background: rgba(255,255,255,.97); border-radius: 14px; padding: 8px;
+  box-shadow: 0 3px 12px rgba(0,0,0,.4); z-index: 5;
+}
+#szukajka.widoczna { display: flex; }
+#pole-szukaj {
+  flex: 1 1 60%; min-width: 0; min-height: 46px;
+  border: 1px solid #ccc; border-radius: 10px; padding: 0 12px;
+  /* 16px to nie kaprys: przy mniejszej czcionce Safari na iPhonie samo przybliża stronę,
+     gdy kursor wchodzi w pole, i mapa zostaje przesunięta. */
+  font-size: 16px; -webkit-user-select: text; user-select: text;
+}
+#szukajka button { flex: 0 0 auto; min-height: 46px; max-width: none; padding: 0 16px; font-size: 14px; }
+#szukajka .zamknij { background: transparent; box-shadow: none; padding: 0 10px; }
+#podpowiedzi { flex: 1 1 100%; max-height: 46vh; overflow-y: auto; }
+.podpowiedz {
+  padding: 12px 10px; border-top: 1px solid #eee; font-size: 15px; line-height: 1.3; cursor: pointer;
+}
+.podpowiedz .drobne { font-size: 13px; color: var(--szara); }
+
+/* ————— lista wybranych działek ————— */
+#lista-dzialek {
+  position: absolute; left: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom) + 132px);
+  max-height: 30vh; overflow-y: auto; display: none;
+  background: rgba(0,0,0,.82); color: #fff; border-radius: 12px; padding: 6px 4px;
+}
+#lista-dzialek.widoczna { display: block; }
+.wiersz-dzialki {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; font-size: 14px; line-height: 1.25;
+}
+.wiersz-dzialki .nazwa { flex: 1 1 auto; }
+.wiersz-dzialki .pole { flex: 0 0 auto; font-weight: 700; }
+.wiersz-dzialki .usun {
+  flex: 0 0 auto; min-height: 34px; max-width: none; padding: 0 12px;
+  background: rgba(255,255,255,.15); color: #fff; font-size: 18px; box-shadow: none;
+}
+
 /* ————— komunikat ————— */
 #komunikat {
   position: absolute; left: 12px; right: 12px; bottom: 108px;
@@ -100,21 +158,42 @@ button.glowny:active { background: var(--zielen-jasna); }
   <div id="dzialka-opis"></div>
 </div>
 
+<div id="szukajka">
+  <input id="pole-szukaj" type="search" enterkeyhint="search" autocomplete="off"
+         placeholder="Adres albo numer działki">
+  <button id="btn-szukaj-idz">Szukaj</button>
+  <button id="btn-szukaj-zamknij" class="zamknij">✕</button>
+  <div id="podpowiedzi"></div>
+</div>
+
+<div id="lista-dzialek"></div>
+
 <div id="komunikat"></div>
+
+<!-- Przełącznik trybu osobno nad paskiem, a nie jako piąty przycisk w rzędzie: to jedyna rzecz,
+     która zmienia znaczenie dotknięcia mapy, więc musi być widać, który tryb jest włączony,
+     bez czytania. -->
+<div id="tryby">
+  <button id="tryb-dzialki" class="tryb wybrany">Działki</button>
+  <button id="tryb-rysowanie" class="tryb">Rysuję sam</button>
+</div>
 
 <div id="pasek">
   <button id="btn-gdzie" class="glowny"><span class="ikona">📍</span>Gdzie jestem</button>
-  <button id="btn-cofnij" disabled><span class="ikona">↩︎</span>Cofnij punkt</button>
+  <button id="btn-szukaj"><span class="ikona">🔍</span>Szukaj</button>
+  <button id="btn-cofnij" disabled><span class="ikona">↩︎</span>Cofnij</button>
   <button id="btn-wyczysc" disabled><span class="ikona">🗑</span>Wyczyść</button>
   <button id="btn-udostepnij" disabled><span class="ikona">📤</span>Udostępnij</button>
 </div>
 
 <div id="powitanie">
   <h1>Działkomierz</h1>
-  <p><b>Dotykaj mapy po kolei w rogach pola.</b> Powierzchnia liczy się sama.<br>
+  <p><b>Dotykaj działek na mapie</b> — dokładają się do zestawu, a powierzchnie sumują same.
      Mapę przesuwasz przeciągnięciem, przybliżasz dwoma palcami.</p>
-  <p><b>Gdzie jestem</b> pokaże działkę, na której stoisz — razem z jej numerem i powierzchnią
-     z ewidencji gruntów.</p>
+  <p><b>Rysuję sam</b> to drugi tryb: dotykasz rogów pola i liczysz powierzchnię niezależnie
+     od granic z ewidencji — przydatne, gdy pracujesz na części działki.</p>
+  <p><b>Gdzie jestem</b> pokaże działkę, na której stoisz. <b>Szukaj</b> znajdzie ją po adresie
+     albo po numerze.</p>
   <button id="btn-start" class="glowny">Zaczynamy</button>
   <div class="drobne">Zdjęcia lotnicze i dane działek: GUGiK (geoportal.gov.pl)</div>
 </div>

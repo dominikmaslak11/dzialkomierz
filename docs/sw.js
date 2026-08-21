@@ -3,7 +3,7 @@
 // Kafli mapy **celowo nie zapisujemy tutaj na stałe** — zdjęcie lotnicze całego powiatu to setki
 // megabajtów, a przeglądarka i tak wyrzuciłaby to bez ostrzeżenia. Kafle mają własny, krótki cache
 // (patrz niżej), który ratuje ponowne obejrzenie tego samego pola, a nie udaje mapy offline.
-const WERSJA = 'dzialkomierz-v2';
+const WERSJA = 'dzialkomierz-v3';
 const SZKIELET = [
   '.', 'index.html', 'mapa.js', 'dzialkomierz.js',
   'AgroErpMobile-geo-shared.js', 'kotlin-kotlin-stdlib.js',

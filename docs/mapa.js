@@ -50,7 +50,7 @@ class Mapa {
 
     this.kafle = new Map();      // "z/x/y" -> Image | 'pusty' | 'laduje'
     this.obrys = [];             // [{e, n}] — punkty wskazane przez człowieka
-    this.dzialka = null;         // [{e, n}] — obrys z ewidencji, jeśli pobrany
+    this.dzialki = [];           // wybrane działki z ewidencji: [{id, numer, obreb, gmina, obrys, m2}]
     this.pozycja = null;         // {e, n, dokladnosc} — gdzie stoi telefon
     this.przyKliknieciu = null;  // wywoływane przy dodaniu punktu
 
@@ -272,7 +272,13 @@ class Mapa {
       this._pobierzKafel(lista[i], lista[i + 1], lista[i + 2]);
     }
 
-    if (this.dzialka) this._rysujWielokat(this.dzialka, 'rgba(41,182,246,.18)', '#29b6f6', 3, false);
+    // Działki pod obrysem ręcznym: gdy oba są widoczne, ważniejsze jest to, co człowiek rysuje.
+    for (const d of this.dzialki) {
+      if (d.obrys) this._rysujWielokat(d.obrys, 'rgba(41,182,246,.20)', '#29b6f6', 3, false);
+    }
+    for (const d of this.dzialki) {
+      if (d.obrys) this._podpisz(d);
+    }
     if (this.obrys.length) this._rysujWielokat(this.obrys, 'rgba(255,214,0,.22)', '#ffd600', 3, true);
     if (this.pozycja) this._rysujPozycje();
   }
@@ -307,6 +313,27 @@ class Mapa {
       ctx.lineWidth = 1.5;
       ctx.stroke();
     });
+  }
+
+  /** Numer działki na jej środku — bez tego zestaw kilku działek to zbiór nieodróżnialnych plam. */
+  _podpisz(d) {
+    const ctx = this.ctx;
+    let sx = 0, sy = 0;
+    for (const p of d.obrys) { sx += p.e; sy += p.n; }
+    const t = this.naEkran(sx / d.obrys.length, sy / d.obrys.length);
+    if (t.x < -40 || t.y < -20 || t.x > this.szerokosc + 40 || t.y > this.wysokosc + 20) return;
+    ctx.font = '600 15px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Obwódka pod napisem: numer działki trafia raz na ciemny las, raz na jasne ściernisko,
+    // a sam biały tekst bywa wtedy nieczytelny.
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,.75)';
+    ctx.strokeText(d.numer, t.x, t.y);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(d.numer, t.x, t.y);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
   }
 
   _rysujPozycje() {

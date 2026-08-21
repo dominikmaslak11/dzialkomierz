@@ -25,6 +25,18 @@ let uslugaPreferowana = null;
 
 const PX_KAFLA = Geo.pikseliKafla();
 
+/**
+ * Najdalej, jak wolno się oddalić — 64 m na piksel, czyli mniej więcej 26 km w poprzek telefonu.
+ *
+ * To nie jest liczba wzięta z sufitu ani ostrożność na zapas. Przy tej skali siatka schodzi do
+ * poziomu 0, gdzie **jeden kafel obejmuje 65 km** — a każdy dalszy krok w tył nie zmniejsza już
+ * poziomu, tylko każe pobrać kilkanaście takich kafli naraz. Zmierzone: przy 128 m/px robi się
+ * ich sześć, przy 400 m/px osiemnaście. Usługa GUGiK przestaje wtedy nadążać i zdjęcie po prostu
+ * znika — co wygląda dokładnie jak zepsute oddalanie, a jest lawiną żądań, których nikt nie
+ * potrzebuje. Pole ogląda się z kilkuset metrów, nie z orbity.
+ */
+const MAX_M_NA_PX = 64;
+
 class Mapa {
   constructor(canvas) {
     this.canvas = canvas;
@@ -155,7 +167,8 @@ class Mapa {
       img.onload = () => {
         if (this._pustyKafel(img)) { sprobuj(i + 1); return; }   // biała płachta = brak pokrycia
         uslugaPreferowana = kolejnosc[i];
-        this.kafle.set(klucz, img);
+        this.kafle.set(klucz, { img, z, x, y, b: Geo.zasiegKafla(z, x, y) });
+        this._przytnijPamiec();
         if (this.przyKafluDobrym) this.przyKafluDobrym();
         this.rysuj();
       };
@@ -163,6 +176,25 @@ class Mapa {
       img.src = this._adres(kolejnosc[i], z, x, y);
     };
     sprobuj(0);
+  }
+
+  /**
+   * Ogranicznik pamięci.
+   *
+   * Podkład opłaca się tylko dopóki trzymanie starych kafli jest tanie. Każdy to megabajt z hakiem
+   * po rozpakowaniu, a telefon w polu nie ma ich do oddania — przy kilkuset kaflach przeglądarka
+   * zaczyna kasować zakładkę w tle i człowiek wraca do pustego ekranu. Wyrzucamy najstarsze,
+   * bo Map zachowuje kolejność wstawiania.
+   */
+  _przytnijPamiec() {
+    const LIMIT = 220;
+    if (this.kafle.size <= LIMIT) return;
+    const doUsuniecia = this.kafle.size - LIMIT;
+    let i = 0;
+    for (const klucz of this.kafle.keys()) {
+      if (i++ >= doUsuniecia) break;
+      this.kafle.delete(klucz);
+    }
   }
 
   /**
@@ -202,21 +234,42 @@ class Mapa {
 
     const w = this.zakresWidoku();
     const z = Geo.poziomKafli(w.minE, w.minN, w.maxE, w.maxN, this.mNaPx);
-    const lista = Geo.kafleDlaWidoku(w.minE, w.minN, w.maxE, w.maxN, z);   // [z,x,y, z,x,y, ...]
 
-    for (let i = 0; i < lista.length; i += 3) {
-      const kz = lista[i], kx = lista[i + 1], ky = lista[i + 2];
-      const klucz = `${kz}/${kx}/${ky}`;
-      const kafel = this.kafle.get(klucz);
-      if (kafel === undefined) { this._pobierzKafel(kz, kx, ky); continue; }
-      if (kafel === 'laduje' || kafel === 'pusty') continue;
-
-      const b = Geo.zasiegKafla(kz, kx, ky);
-      const lg = this.naEkran(b[0], b[3]);          // lewy górny róg
-      const pd = this.naEkran(b[2], b[1]);          // prawy dolny
+    // ————— podkład z tego, co już mamy —————
+    //
+    // Rysujemy **wszystkie** wczytane kafle przecinające widok, od najbardziej ogólnych do
+    // najbardziej szczegółowych, więc szczegółowe zakrywają ogólne. To jest ta sztuczka, dzięki
+    // której mapy w przeglądarce wyglądają na płynne: po szczypnięciu zmienia się poziom kafli
+    // i te właściwe trzeba dopiero ściągnąć, a GUGiK potrafi się z tym guzdrać kilkanaście sekund.
+    // Bez podkładu ekran robi się w tym czasie pusty i wygląda, jakby program się zawiesił —
+    // rozciągnięty kafel z poprzedniego poziomu jest rozmyty, ale widać na nim, gdzie się jest.
+    const doNarysowania = [];
+    for (const wpis of this.kafle.values()) {
+      if (!wpis || !wpis.img) continue;
+      const b = wpis.b;
+      if (b[2] < w.minE || b[0] > w.maxE || b[3] < w.minN || b[1] > w.maxN) continue;
+      doNarysowania.push(wpis);
+    }
+    doNarysowania.sort((a, b) => a.z - b.z);
+    for (const wpis of doNarysowania) {
+      const lg = this.naEkran(wpis.b[0], wpis.b[3]);   // lewy górny róg
+      const pd = this.naEkran(wpis.b[2], wpis.b[1]);   // prawy dolny
       // +1 px: sąsiednie kafle po zaokrągleniu zostawiają między sobą włosowe szpary, które
       // na ciemnym tle wyglądają jak siatka narysowana na zdjęciu.
-      ctx.drawImage(kafel, lg.x, lg.y, pd.x - lg.x + 1, pd.y - lg.y + 1);
+      ctx.drawImage(wpis.img, lg.x, lg.y, pd.x - lg.x + 1, pd.y - lg.y + 1);
+    }
+
+    // ————— dociąganie brakujących —————
+    //
+    // Widok powiększony o margines, żeby kafle tuż za krawędzią były już w drodze, zanim człowiek
+    // tam przesunie. Bez tego każde przesunięcie odsłania szary pas i dopiero wtedy zaczyna się
+    // pobieranie.
+    const zapas = this.mNaPx * Math.max(this.szerokosc, this.wysokosc) * 0.35;
+    const lista = Geo.kafleDlaWidoku(
+      w.minE - zapas, w.minN - zapas, w.maxE + zapas, w.maxN + zapas, z,
+    );
+    for (let i = 0; i < lista.length; i += 3) {
+      this._pobierzKafel(lista[i], lista[i + 1], lista[i + 2]);
     }
 
     if (this.dzialka) this._rysujWielokat(this.dzialka, 'rgba(41,182,246,.18)', '#29b6f6', 3, false);
@@ -312,9 +365,7 @@ class Mapa {
         const [a, b] = [...palce.values()];
         const d = Math.hypot(a.x - b.x, a.y - b.y);
         if (startD > 0 && d > 0) {
-          // Zakres skali: 0,15 m/px to jakieś 15 cm na piksel — poniżej zdjęcie lotnicze i tak
-          // nie ma więcej szczegółu, a widać już tylko powiększone piksele.
-          this.mNaPx = Math.min(400, Math.max(0.15, startSkala * (startD / d)));
+          this.mNaPx = Math.min(MAX_M_NA_PX, Math.max(0.15, startSkala * (startD / d)));
           // Punkt między palcami ma zostać pod palcami — inaczej mapa ucieka w bok przy każdym
           // szczypnięciu i trzeba ją potem szukać.
           const sx = (a.x + b.x) / 2, sy = (a.y + b.y) / 2;

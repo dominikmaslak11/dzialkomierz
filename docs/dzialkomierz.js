@@ -160,6 +160,13 @@ function odswiezListeDzialek() {
     const pole = document.createElement('div');
     pole.className = 'pole';
     pole.textContent = d.m2 ? opiszPowierzchnie(d.m2) : '—';
+    const sasiedzi = document.createElement('button');
+    sasiedzi.className = 'usun';
+    sasiedzi.textContent = '＋';
+    sasiedzi.title = 'Dołóż działki dookoła';
+    sasiedzi.setAttribute('aria-label', `Dołóż działki sąsiadujące z ${d.numer}`);
+    sasiedzi.addEventListener('click', () => dolozSasiadow(d));
+
     const usun = document.createElement('button');
     usun.className = 'usun';
     usun.textContent = '✕';
@@ -169,7 +176,7 @@ function odswiezListeDzialek() {
       przelicz();
       mapa.rysuj();
     });
-    w.append(nazwa, pole, usun);
+    w.append(nazwa, pole, sasiedzi, usun);
     lista.append(w);
   });
 }
@@ -182,6 +189,7 @@ function przelaczDzialke(d) {
     komunikat(`Wyjęto działkę ${d.numer}.`, 3);
   } else {
     mapa.dzialki.push(d);
+    sprawdzLasWTle(d);
     // Bez tej informacji dokładanie działek jest ruchem w ciemno — człowiek widzi tylko, że coś
     // się podświetliło, a interesuje go, ile tego już ma razem.
     komunikat(mapa.dzialki.length === 1
@@ -190,6 +198,116 @@ function przelaczDzialke(d) {
   }
   przelicz();
   mapa.rysuj();
+}
+
+// ————— sąsiednie działki —————
+
+/**
+ * Punkty do zapytania o sąsiadów: kawałek **na zewnątrz** od środka każdego boku.
+ *
+ * ULDK nie ma zapytania „wszystko w tym prostokącie", więc sąsiadów szuka się pytając, co leży
+ * tuż za każdą krawędzią. Odsunięcie liczone po normalnej do boku, w stronę przeciwną niż środek
+ * działki — bez tego połowa sond wskazuje z powrotem w tę samą działkę i wraca ona sama jako
+ * własny sąsiad.
+ */
+function punktySondujace(obrys, odsuniecieM = 6) {
+  let cx = 0, cy = 0;
+  for (const p of obrys) { cx += p.e / obrys.length; cy += p.n / obrys.length; }
+  const punkty = [];
+  for (let i = 0; i < obrys.length; i++) {
+    const a = obrys[i], b = obrys[(i + 1) % obrys.length];
+    const sx = (a.e + b.e) / 2, sy = (a.n + b.n) / 2;
+    let nx = -(b.n - a.n), ny = (b.e - a.e);
+    const dl = Math.hypot(nx, ny);
+    if (dl < 0.5) continue;                       // bok krótszy niż pół metra: sonda i tak trafi w ten sam punkt
+    nx /= dl; ny /= dl;
+    if ((sx - cx) * nx + (sy - cy) * ny < 0) { nx = -nx; ny = -ny; }   // odwróć, jeśli celuje do środka
+    punkty.push({ e: sx + nx * odsuniecieM, n: sy + ny * odsuniecieM });
+  }
+  return punkty;
+}
+
+async function dolozSasiadow(d) {
+  if (!d.obrys) { komunikat('Ta działka nie ma obrysu, więc nie wiem, co ją otacza.'); return; }
+  const sondy = punktySondujace(d.obrys);
+  komunikat(`Szukam sąsiadów działki ${d.numer}…`, 0);
+  let dodane = 0;
+  // Jedna po drugiej, nie wszystkie naraz: to darmowa usługa publiczna, a kilkanaście
+  // równoczesnych żądań na jedno dotknięcie nie jest sposobem, w jaki się z niej korzysta.
+  for (const s of sondy) {
+    try {
+      const sasiad = await dzialkaWPunkcie(s.e, s.n);
+      if (!sasiad || mapa.dzialki.some(x => x.id === sasiad.id)) continue;
+      mapa.dzialki.push(sasiad);
+      dodane++;
+      przelicz();
+      mapa.rysuj();
+    } catch { /* pojedyncza nieudana sonda to nie powód, żeby przerwać całe szukanie */ }
+  }
+  komunikat(dodane
+    ? `Dołożono ${dodane} ${odmien(dodane, 'sąsiada', 'sąsiadów', 'sąsiadów')}. Razem ${opiszPowierzchnie(sumaDzialek())}.`
+    : 'Nie znalazłem nowych sąsiadów — albo już wszystkie są w zestawie.', 6);
+}
+
+// ————— las —————
+
+const BDL = 'https://mapserver.bdl.lasy.gov.pl/arcgis/services/WMS_BDL_mapa_drzewostanow/MapServer/WMSServer';
+
+/**
+ * Pierwszy wiersz tabeli to nazwy pól, drugi to wartości.
+ *
+ * Sklejane po pozycji, ale tylko gdy liczby się zgadzają — przy niezgodności wolimy nie powiedzieć
+ * nic, niż przypisać wiek gatunkowi. Zdanie z przesuniętych kolumn brzmiałoby równie wiarygodnie
+ * i byłoby nieprawdą.
+ */
+function polaZTabeli(html) {
+  const wiersze = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)].map(w =>
+    [...w[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(k => k[1].replace(/<[^>]*>/g, '').trim()));
+  const pelne = wiersze.filter(w => w.length);
+  if (pelne.length < 2 || pelne[0].length !== pelne[1].length) return null;
+  const mapka = {};
+  pelne[0].forEach((nazwa, i) => {
+    const v = pelne[1][i];
+    mapka[nazwa] = (v && v.toLowerCase() === 'null') ? '' : v;
+  });
+  return mapka;
+}
+
+/** Zdanie o drzewostanie w tym punkcie albo null, gdy to nie las. */
+async function opiszLas(e, n) {
+  const p = 64;
+  const bbox = `${(e - p).toFixed(2)},${(n - p).toFixed(2)},${(e + p).toFixed(2)},${(n + p).toFixed(2)}`;
+  const warstwy = '0,1,2,3,4,5,6,7';
+  const odp = await fetch(`${BDL}?SERVICE=WMS&REQUEST=GetFeatureInfo&VERSION=1.1.1` +
+    `&LAYERS=${warstwy}&QUERY_LAYERS=${warstwy}&STYLES=&SRS=EPSG:2180&BBOX=${bbox}` +
+    '&WIDTH=512&HEIGHT=512&X=256&Y=256&FEATURE_COUNT=5&INFO_FORMAT=text/html');
+  const pola = polaZTabeli(await odp.text());
+  if (!pola) return null;
+  // Całe zdanie składa rdzeń, ten sam co na Androidzie. Sklejanie tego tutaj z osobnych kawałków
+  // dawało pustkę wszędzie tam, gdzie opis taksacyjny jest dziurawy — a jest, zwłaszcza poza
+  // lasami państwowymi. Zmierzone w Puszczy Kampinoskiej: przyszedł wiek i adres leśny, bez
+  // gatunku i bez siedliska, więc „nic do powiedzenia" było nieprawdą.
+  return Geo.opisLasu(
+    `${pola['species_cd_d'] || ''}${pola['species_age'] || ''}` || null,
+    pola['site_type_cd'] || null,
+    pola['adress_forest'] || null,
+  );
+}
+
+/** Dopytuje o las w tle — działka pokazuje się od razu, opis dochodzi, gdy przyjdzie. */
+function sprawdzLasWTle(d) {
+  if (!d.obrys) return;
+  let cx = 0, cy = 0;
+  for (const p of d.obrys) { cx += p.e / d.obrys.length; cy += p.n / d.obrys.length; }
+  opiszLas(cx, cy).then(opis => {
+    if (!opis) return;
+    d.las = opis;
+    // Dopisujemy tylko wtedy, gdy ta działka wciąż jest tą oglądaną — przy szybkim dotykaniu
+    // kolejnych odpowiedź potrafi przyjść po tym, jak człowiek patrzy już na inną.
+    if (mapa.dzialki.length === 1 && mapa.dzialki[0].id === d.id) {
+      el('dzialka-opis').textContent += ` · 🌲 ${opis}`;
+    }
+  }).catch(() => { /* las to dodatek, nie powód do komunikatu o błędzie */ });
 }
 
 // ————— wynik na górze —————
@@ -292,7 +410,7 @@ el('btn-gdzie').addEventListener('click', () => {
       const d = await dzialkaWPunkcie(e, n);
       if (!d) { komunikat('Tu nie ma działki w ewidencji — albo jesteś poza Polską.'); return; }
       if (d.obrys) mapa.pokazObszar(d.obrys);
-      if (!mapa.dzialki.some(x => x.id === d.id)) mapa.dzialki.push(d);
+      if (!mapa.dzialki.some(x => x.id === d.id)) { mapa.dzialki.push(d); sprawdzLasWTle(d); }
       przelicz();
       mapa.rysuj();
       komunikat(`Stoisz na działce ${d.numer} — ${opiszPowierzchnie(d.m2 || 0)} wg ewidencji.`, 6);
@@ -331,7 +449,7 @@ el('btn-szukaj-zamknij').addEventListener('click', () => pokazSzukajke(false));
 /** Wspólne dla wszystkich dróg dojścia do działki: pokaż ją, dołóż do zestawu, przelicz. */
 function przyjmijDzialke(d, opisPrefiks) {
   if (d.obrys) mapa.pokazObszar(d.obrys);
-  if (!mapa.dzialki.some(x => x.id === d.id)) mapa.dzialki.push(d);
+  if (!mapa.dzialki.some(x => x.id === d.id)) { mapa.dzialki.push(d); sprawdzLasWTle(d); }
   przelicz();
   mapa.rysuj();
   komunikat(`${opisPrefiks}${d.numer} · obręb ${d.obreb} · gm. ${d.gmina} — ${opiszPowierzchnie(d.m2 || 0)}`, 7);

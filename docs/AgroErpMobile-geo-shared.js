@@ -228,6 +228,59 @@
     var moisture = this.d7_1.r(match.s5().j(2));
     return joinToString(listOfNotNull([kind, moisture]), ' ') + (' (' + text + ')');
   };
+  protoOf(ForestStand).g7 = function (address) {
+    var tmp;
+    if (address == null) {
+      tmp = null;
+    } else {
+      // Inline function 'kotlin.text.trim' call
+      tmp = toString(trim(isCharSequence(address) ? address : THROW_CCE()));
+    }
+    var tmp1_elvis_lhs = tmp;
+    var tmp_0;
+    if (tmp1_elvis_lhs == null) {
+      return null;
+    } else {
+      tmp_0 = tmp1_elvis_lhs;
+    }
+    var text = tmp_0;
+    var tmp2_elvis_lhs = Regex_init_$Create$('-\\s*([a-z])\\s*-').d5(text);
+    var tmp_1;
+    if (tmp2_elvis_lhs == null) {
+      return null;
+    } else {
+      tmp_1 = tmp2_elvis_lhs;
+    }
+    var match = tmp_1;
+    return match.s5().j(1);
+  };
+  protoOf(ForestStand).h7 = function (standLabel, habitatCode, forestAddress) {
+    var tmp0_safe_receiver = this.g7(forestAddress);
+    var tmp;
+    if (tmp0_safe_receiver == null) {
+      tmp = null;
+    } else {
+      // Inline function 'kotlin.let' call
+      // Inline function 'kotlin.contracts.contract' call
+      // Inline function 'com.agroerp.geo.ForestStand.describe.<anonymous>' call
+      tmp = 'wydzielenie ' + tmp0_safe_receiver;
+    }
+    var tmp_0 = tmp;
+    var tmp1_safe_receiver = this.e7(standLabel);
+    var parts = listOfNotNull([tmp_0, tmp1_safe_receiver == null ? null : tmp1_safe_receiver.a7(), this.f7(habitatCode)]);
+    // Inline function 'kotlin.takeIf' call
+    // Inline function 'kotlin.contracts.contract' call
+    var tmp_1;
+    // Inline function 'com.agroerp.geo.ForestStand.describe.<anonymous>' call
+    // Inline function 'kotlin.collections.isNotEmpty' call
+    if (!parts.l()) {
+      tmp_1 = parts;
+    } else {
+      tmp_1 = null;
+    }
+    var tmp2_safe_receiver = tmp_1;
+    return tmp2_safe_receiver == null ? null : joinToString(tmp2_safe_receiver, ', ');
+  };
   var ForestStand_instance;
   function ForestStand_getInstance() {
     if (ForestStand_instance == null)
@@ -235,9 +288,9 @@
     return ForestStand_instance;
   }
   function GeoArea() {
-    this.g7_1 = 111320.0;
+    this.i7_1 = 111320.0;
   }
-  protoOf(GeoArea).h7 = function (points) {
+  protoOf(GeoArea).j7 = function (points) {
     if (points.i() < 3)
       return 0.0;
     var sum = 0.0;
@@ -260,7 +313,7 @@
     var x = sum;
     return Math.abs(x) / 2.0;
   };
-  protoOf(GeoArea).i7 = function (points) {
+  protoOf(GeoArea).k7 = function (points) {
     if (points.l())
       return emptyList();
     var lat0 = points.j(0).y5_1;
@@ -282,12 +335,12 @@
     }
     return destination;
   };
-  protoOf(GeoArea).j7 = function (points) {
+  protoOf(GeoArea).l7 = function (points) {
     if (points.i() < 3)
       return 0.0;
-    return this.h7(this.i7(points));
+    return this.j7(this.k7(points));
   };
-  protoOf(GeoArea).k7 = function (points) {
+  protoOf(GeoArea).m7 = function (points) {
     if (points.i() < 2)
       return 0.0;
     var total = 0.0;
@@ -312,31 +365,31 @@
        while (inductionVariable <= last);
     return total;
   };
-  protoOf(GeoArea).l7 = function (points) {
+  protoOf(GeoArea).n7 = function (points) {
     if (points.i() < 2)
       return 0.0;
-    return this.k7(this.i7(points));
+    return this.m7(this.k7(points));
   };
   var GeoArea_instance;
   function GeoArea_getInstance() {
     return GeoArea_instance;
   }
   function TileKey(z, x, y) {
-    this.m7_1 = z;
-    this.n7_1 = x;
-    this.o7_1 = y;
+    this.o7_1 = z;
+    this.p7_1 = x;
+    this.q7_1 = y;
   }
-  protoOf(TileKey).p7 = function () {
-    var span = TileGrid_instance.v7(this.m7_1);
-    return new MapBounds(this.n7_1 * span, this.o7_1 * span, (this.n7_1 + 1 | 0) * span, (this.o7_1 + 1 | 0) * span);
+  protoOf(TileKey).r7 = function () {
+    var span = TileGrid_instance.x7(this.o7_1);
+    return new MapBounds(this.p7_1 * span, this.q7_1 * span, (this.p7_1 + 1 | 0) * span, (this.q7_1 + 1 | 0) * span);
   };
   protoOf(TileKey).toString = function () {
-    return 'TileKey(z=' + this.m7_1 + ', x=' + this.n7_1 + ', y=' + this.o7_1 + ')';
+    return 'TileKey(z=' + this.o7_1 + ', x=' + this.p7_1 + ', y=' + this.q7_1 + ')';
   };
   protoOf(TileKey).hashCode = function () {
-    var result = this.m7_1;
-    result = imul(result, 31) + this.n7_1 | 0;
-    result = imul(result, 31) + this.o7_1 | 0;
+    var result = this.o7_1;
+    result = imul(result, 31) + this.p7_1 | 0;
+    result = imul(result, 31) + this.q7_1 | 0;
     return result;
   };
   protoOf(TileKey).equals = function (other) {
@@ -345,29 +398,29 @@
     if (!(other instanceof TileKey))
       return false;
     var tmp0_other_with_cast = other instanceof TileKey ? other : THROW_CCE();
-    if (!(this.m7_1 === tmp0_other_with_cast.m7_1))
-      return false;
-    if (!(this.n7_1 === tmp0_other_with_cast.n7_1))
-      return false;
     if (!(this.o7_1 === tmp0_other_with_cast.o7_1))
+      return false;
+    if (!(this.p7_1 === tmp0_other_with_cast.p7_1))
+      return false;
+    if (!(this.q7_1 === tmp0_other_with_cast.q7_1))
       return false;
     return true;
   };
   function TileGrid() {
-    this.q7_1 = 1024;
-    this.r7_1 = 64.0;
-    this.s7_1 = 0;
-    this.t7_1 = 10;
-    this.u7_1 = 12;
+    this.s7_1 = 1024;
+    this.t7_1 = 64.0;
+    this.u7_1 = 0;
+    this.v7_1 = 10;
+    this.w7_1 = 12;
   }
-  protoOf(TileGrid).w7 = function (z) {
+  protoOf(TileGrid).y7 = function (z) {
     // Inline function 'kotlin.math.pow' call
     return 64.0 / Math.pow(2.0, z);
   };
-  protoOf(TileGrid).v7 = function (z) {
-    return 1024 * this.w7(z);
+  protoOf(TileGrid).x7 = function (z) {
+    return 1024 * this.y7(z);
   };
-  protoOf(TileGrid).x7 = function (metresPerPixel) {
+  protoOf(TileGrid).z7 = function (metresPerPixel) {
     if (metresPerPixel <= 0 || !isFinite(metresPerPixel))
       return 10;
     // Inline function 'kotlin.math.ln' call
@@ -379,22 +432,22 @@
     var tmp$ret$2 = Math.ceil(exact);
     return coerceIn(numberToInt(tmp$ret$2), 0, 10);
   };
-  protoOf(TileGrid).y7 = function (bounds, z) {
-    var span = this.v7(z);
+  protoOf(TileGrid).a8 = function (bounds, z) {
+    var span = this.x7(z);
     // Inline function 'kotlin.math.floor' call
-    var x = bounds.z7_1 / span;
+    var x = bounds.b8_1 / span;
     var tmp$ret$0 = Math.floor(x);
     var minX = numberToInt(tmp$ret$0);
     // Inline function 'kotlin.math.floor' call
-    var x_0 = bounds.a8_1 / span;
+    var x_0 = bounds.c8_1 / span;
     var tmp$ret$1 = Math.floor(x_0);
     var minY = numberToInt(tmp$ret$1);
     // Inline function 'kotlin.math.floor' call
-    var x_1 = (bounds.b8_1 - 1.0E-9) / span;
+    var x_1 = (bounds.d8_1 - 1.0E-9) / span;
     var tmp$ret$2 = Math.floor(x_1);
     var maxX = numberToInt(tmp$ret$2);
     // Inline function 'kotlin.math.floor' call
-    var x_2 = (bounds.c8_1 - 1.0E-9) / span;
+    var x_2 = (bounds.e8_1 - 1.0E-9) / span;
     var tmp$ret$3 = Math.floor(x_2);
     var maxY = numberToInt(tmp$ret$3);
     // Inline function 'kotlin.collections.buildList' call
@@ -421,9 +474,9 @@
        while (!(y === maxY));
     return this_0.n2();
   };
-  protoOf(TileGrid).d8 = function (bounds, metresPerPixel) {
-    var z = this.x7(metresPerPixel);
-    while (z > 0 && this.y7(bounds, z).i() > 12) {
+  protoOf(TileGrid).f8 = function (bounds, metresPerPixel) {
+    var z = this.z7(metresPerPixel);
+    while (z > 0 && this.a8(bounds, z).i() > 12) {
       z = z - 1 | 0;
     }
     return z;
@@ -433,27 +486,27 @@
     return TileGrid_instance;
   }
   function Companion() {
-    this.e8_1 = 20.0;
-    this.f8_1 = 20000.0;
+    this.g8_1 = 20.0;
+    this.h8_1 = 20000.0;
   }
   var Companion_instance;
   function Companion_getInstance() {
     return Companion_instance;
   }
   function MapBounds(minEasting, minNorthing, maxEasting, maxNorthing) {
-    this.z7_1 = minEasting;
-    this.a8_1 = minNorthing;
-    this.b8_1 = maxEasting;
-    this.c8_1 = maxNorthing;
+    this.b8_1 = minEasting;
+    this.c8_1 = minNorthing;
+    this.d8_1 = maxEasting;
+    this.e8_1 = maxNorthing;
   }
   protoOf(MapBounds).toString = function () {
-    return 'MapBounds(minEasting=' + this.z7_1 + ', minNorthing=' + this.a8_1 + ', maxEasting=' + this.b8_1 + ', maxNorthing=' + this.c8_1 + ')';
+    return 'MapBounds(minEasting=' + this.b8_1 + ', minNorthing=' + this.c8_1 + ', maxEasting=' + this.d8_1 + ', maxNorthing=' + this.e8_1 + ')';
   };
   protoOf(MapBounds).hashCode = function () {
-    var result = getNumberHashCode(this.z7_1);
-    result = imul(result, 31) + getNumberHashCode(this.a8_1) | 0;
-    result = imul(result, 31) + getNumberHashCode(this.b8_1) | 0;
+    var result = getNumberHashCode(this.b8_1);
     result = imul(result, 31) + getNumberHashCode(this.c8_1) | 0;
+    result = imul(result, 31) + getNumberHashCode(this.d8_1) | 0;
+    result = imul(result, 31) + getNumberHashCode(this.e8_1) | 0;
     return result;
   };
   protoOf(MapBounds).equals = function (other) {
@@ -462,19 +515,19 @@
     if (!(other instanceof MapBounds))
       return false;
     var tmp0_other_with_cast = other instanceof MapBounds ? other : THROW_CCE();
-    if (!equals_0(this.z7_1, tmp0_other_with_cast.z7_1))
-      return false;
-    if (!equals_0(this.a8_1, tmp0_other_with_cast.a8_1))
-      return false;
     if (!equals_0(this.b8_1, tmp0_other_with_cast.b8_1))
       return false;
     if (!equals_0(this.c8_1, tmp0_other_with_cast.c8_1))
+      return false;
+    if (!equals_0(this.d8_1, tmp0_other_with_cast.d8_1))
+      return false;
+    if (!equals_0(this.e8_1, tmp0_other_with_cast.e8_1))
       return false;
     return true;
   };
   function ParcelGeometry() {
   }
-  protoOf(ParcelGeometry).g8 = function (point, polygon) {
+  protoOf(ParcelGeometry).i8 = function (point, polygon) {
     if (polygon.i() < 3)
       return false;
     var x = point.a6();
@@ -499,7 +552,7 @@
        while (inductionVariable <= last);
     return inside;
   };
-  protoOf(ParcelGeometry).h8 = function (point, polygon) {
+  protoOf(ParcelGeometry).j8 = function (point, polygon) {
     if (polygon.i() < 2)
       return null;
     var x = point.a6();
@@ -560,7 +613,7 @@
           return 0.0;
       }
        while (inductionVariable <= last);
-    return GeoArea_instance.h7(polygon);
+    return GeoArea_instance.j7(polygon);
   }
   function clipHalfPlane($this, polygon, from, to_0) {
     if (polygon.l())
@@ -595,7 +648,7 @@
   }
   function PolygonIntersection() {
   }
-  protoOf(PolygonIntersection).i8 = function (a, b) {
+  protoOf(PolygonIntersection).k8 = function (a, b) {
     if (a.i() < 3 || b.i() < 3)
       return 0.0;
     var ox = a.j(0).y5_1;
@@ -635,11 +688,11 @@
     var x = total;
     return Math.abs(x);
   };
-  protoOf(PolygonIntersection).j8 = function (part, whole) {
-    var own = GeoArea_instance.h7(part);
+  protoOf(PolygonIntersection).l8 = function (part, whole) {
+    var own = GeoArea_instance.j7(part);
     if (own <= 0.0)
       return 0.0;
-    return coerceIn_0(this.i8(part, whole) / own, 0.0, 1.0);
+    return coerceIn_0(this.k8(part, whole) / own, 0.0, 1.0);
   };
   var PolygonIntersection_instance;
   function PolygonIntersection_getInstance() {
@@ -657,7 +710,7 @@
   }
   function PolygonValidity() {
   }
-  protoOf(PolygonValidity).k8 = function (points) {
+  protoOf(PolygonValidity).m8 = function (points) {
     var n = points.i();
     if (n < 4)
       return false;
@@ -693,16 +746,16 @@
   }
   function Puwg1992() {
     Puwg1992_instance = this;
-    this.l8_1 = 6378137.0;
-    this.m8_1 = 0.003352810681182319;
-    this.n8_1 = 0.003352810681182319 * (2 - 0.003352810681182319);
-    this.o8_1 = this.n8_1 / (1 - this.n8_1);
-    this.p8_1 = 19.0;
-    this.q8_1 = 0.9993;
-    this.r8_1 = 500000.0;
-    this.s8_1 = -5300000.0;
+    this.n8_1 = 6378137.0;
+    this.o8_1 = 0.003352810681182319;
+    this.p8_1 = 0.003352810681182319 * (2 - 0.003352810681182319);
+    this.q8_1 = this.p8_1 / (1 - this.p8_1);
+    this.r8_1 = 19.0;
+    this.s8_1 = 0.9993;
+    this.t8_1 = 500000.0;
+    this.u8_1 = -5300000.0;
   }
-  protoOf(Puwg1992).t8 = function (latDeg, lonDeg) {
+  protoOf(Puwg1992).v8 = function (latDeg, lonDeg) {
     var lat = latDeg * 3.141592653589793 / 180.0;
     var dLon = (lonDeg - 19.0) * 3.141592653589793 / 180.0;
     // Inline function 'kotlin.math.sin' call
@@ -712,42 +765,42 @@
     // Inline function 'kotlin.math.tan' call
     var tanLat = Math.tan(lat);
     // Inline function 'kotlin.math.sqrt' call
-    var x = 1 - this.n8_1 * sinLat * sinLat;
+    var x = 1 - this.p8_1 * sinLat * sinLat;
     var n = 6378137.0 / Math.sqrt(x);
     var t = tanLat * tanLat;
-    var c = this.o8_1 * cosLat * cosLat;
+    var c = this.q8_1 * cosLat * cosLat;
     var a1 = dLon * cosLat;
-    var tmp = (1 - this.n8_1 / 4 - 3 * this.n8_1 * this.n8_1 / 64 - 5 * this.n8_1 * this.n8_1 * this.n8_1 / 256) * lat;
-    var tmp_0 = 3 * this.n8_1 / 8 + 3 * this.n8_1 * this.n8_1 / 32 + 45 * this.n8_1 * this.n8_1 * this.n8_1 / 1024;
+    var tmp = (1 - this.p8_1 / 4 - 3 * this.p8_1 * this.p8_1 / 64 - 5 * this.p8_1 * this.p8_1 * this.p8_1 / 256) * lat;
+    var tmp_0 = 3 * this.p8_1 / 8 + 3 * this.p8_1 * this.p8_1 / 32 + 45 * this.p8_1 * this.p8_1 * this.p8_1 / 1024;
     // Inline function 'kotlin.math.sin' call
     var x_0 = 2 * lat;
     var tmp_1 = tmp - tmp_0 * Math.sin(x_0);
-    var tmp_2 = 15 * this.n8_1 * this.n8_1 / 256 + 45 * this.n8_1 * this.n8_1 * this.n8_1 / 1024;
+    var tmp_2 = 15 * this.p8_1 * this.p8_1 / 256 + 45 * this.p8_1 * this.p8_1 * this.p8_1 / 1024;
     // Inline function 'kotlin.math.sin' call
     var x_1 = 4 * lat;
     var tmp_3 = tmp_1 + tmp_2 * Math.sin(x_1);
-    var tmp_4 = 35 * this.n8_1 * this.n8_1 * this.n8_1 / 3072;
+    var tmp_4 = 35 * this.p8_1 * this.p8_1 * this.p8_1 / 3072;
     // Inline function 'kotlin.math.sin' call
     var x_2 = 6 * lat;
     var m = 6378137.0 * (tmp_3 - tmp_4 * Math.sin(x_2));
     var a3 = a1 * a1 * a1;
     var a5 = a3 * a1 * a1;
-    var easting = 500000.0 + 0.9993 * n * (a1 + (1 - t + c) * a3 / 6 + (5 - 18 * t + t * t + 72 * c - 58 * this.o8_1) * a5 / 120);
+    var easting = 500000.0 + 0.9993 * n * (a1 + (1 - t + c) * a3 / 6 + (5 - 18 * t + t * t + 72 * c - 58 * this.q8_1) * a5 / 120);
     var a2 = a1 * a1;
     var a4 = a2 * a2;
     var a6 = a4 * a2;
-    var northing = -5300000.0 + 0.9993 * (m + n * tanLat * (a2 / 2 + (5 - t + 9 * c + 4 * c * c) * a4 / 24 + (61 - 58 * t + t * t + 600 * c - 330 * this.o8_1) * a6 / 720));
+    var northing = -5300000.0 + 0.9993 * (m + n * tanLat * (a2 / 2 + (5 - t + 9 * c + 4 * c * c) * a4 / 24 + (61 - 58 * t + t * t + 600 * c - 330 * this.q8_1) * a6 / 720));
     return to(easting, northing);
   };
-  protoOf(Puwg1992).u8 = function (easting, northing) {
+  protoOf(Puwg1992).w8 = function (easting, northing) {
     var m = (northing - -5300000.0) / 0.9993;
     // Inline function 'kotlin.math.sqrt' call
-    var x = 1 - this.n8_1;
+    var x = 1 - this.p8_1;
     var tmp = 1 - Math.sqrt(x);
     // Inline function 'kotlin.math.sqrt' call
-    var x_0 = 1 - this.n8_1;
+    var x_0 = 1 - this.p8_1;
     var e1 = tmp / (1 + Math.sqrt(x_0));
-    var mu = m / (6378137.0 * (1 - this.n8_1 / 4 - 3 * this.n8_1 * this.n8_1 / 64 - 5 * this.n8_1 * this.n8_1 * this.n8_1 / 256));
+    var mu = m / (6378137.0 * (1 - this.p8_1 / 4 - 3 * this.p8_1 * this.p8_1 / 64 - 5 * this.p8_1 * this.p8_1 * this.p8_1 / 256));
     var tmp_0 = 3 * e1 / 2 - 27 * e1 * e1 * e1 / 32;
     // Inline function 'kotlin.math.sin' call
     var x_1 = 2 * mu;
@@ -770,21 +823,21 @@
     var cosPhi1 = Math.cos(phi1);
     // Inline function 'kotlin.math.tan' call
     var tanPhi1 = Math.tan(phi1);
-    var c1 = this.o8_1 * cosPhi1 * cosPhi1;
+    var c1 = this.q8_1 * cosPhi1 * cosPhi1;
     var t1 = tanPhi1 * tanPhi1;
     // Inline function 'kotlin.math.sqrt' call
-    var x_5 = 1 - this.n8_1 * sinPhi1 * sinPhi1;
+    var x_5 = 1 - this.p8_1 * sinPhi1 * sinPhi1;
     var n1 = 6378137.0 / Math.sqrt(x_5);
-    var tmp_7 = 6378137.0 * (1 - this.n8_1);
+    var tmp_7 = 6378137.0 * (1 - this.p8_1);
     // Inline function 'kotlin.math.pow' call
-    var this_0 = 1 - this.n8_1 * sinPhi1 * sinPhi1;
+    var this_0 = 1 - this.p8_1 * sinPhi1 * sinPhi1;
     var r1 = tmp_7 / Math.pow(this_0, 1.5);
     var d = (easting - 500000.0) / (n1 * 0.9993);
     var d2 = d * d;
     var d4 = d2 * d2;
     var d6 = d4 * d2;
-    var lat = phi1 - n1 * tanPhi1 / r1 * (d2 / 2 - (5 + 3 * t1 + 10 * c1 - 4 * c1 * c1 - 9 * this.o8_1) * d4 / 24 + (61 + 90 * t1 + 298 * c1 + 45 * t1 * t1 - 252 * this.o8_1 - 3 * c1 * c1) * d6 / 720);
-    var lon = 19.0 * 3.141592653589793 / 180.0 + (d - (1 + 2 * t1 + c1) * d * d2 / 6 + (5 - 2 * c1 + 28 * t1 - 3 * c1 * c1 + 8 * this.o8_1 + 24 * t1 * t1) * d * d4 / 120) / cosPhi1;
+    var lat = phi1 - n1 * tanPhi1 / r1 * (d2 / 2 - (5 + 3 * t1 + 10 * c1 - 4 * c1 * c1 - 9 * this.q8_1) * d4 / 24 + (61 + 90 * t1 + 298 * c1 + 45 * t1 * t1 - 252 * this.q8_1 - 3 * c1 * c1) * d6 / 720);
+    var lon = 19.0 * 3.141592653589793 / 180.0 + (d - (1 + 2 * t1 + c1) * d * d2 / 6 + (5 - 2 * c1 + 28 * t1 - 3 * c1 * c1 + 8 * this.q8_1 + 24 * t1 * t1) * d * d4 / 120) / cosPhi1;
     return to(lat * 180.0 / 3.141592653589793, lon * 180.0 / 3.141592653589793);
   };
   var Puwg1992_instance;
@@ -823,61 +876,61 @@
   function Geo() {
   }
   protoOf(Geo).toEastingNorthing = function (lat, lon) {
-    var _destruct__k2r9zo = Puwg1992_getInstance().t8(lat, lon);
+    var _destruct__k2r9zo = Puwg1992_getInstance().v8(lat, lon);
     var e = _destruct__k2r9zo.a6();
     var n = _destruct__k2r9zo.b6();
     // Inline function 'kotlin.doubleArrayOf' call
     return new Float64Array([e, n]);
   };
   protoOf(Geo).toLatLon = function (easting, northing) {
-    var _destruct__k2r9zo = Puwg1992_getInstance().u8(easting, northing);
+    var _destruct__k2r9zo = Puwg1992_getInstance().w8(easting, northing);
     var lat = _destruct__k2r9zo.a6();
     var lon = _destruct__k2r9zo.b6();
     // Inline function 'kotlin.doubleArrayOf' call
     return new Float64Array([lat, lon]);
   };
   protoOf(Geo).areaM2 = function (flatXY) {
-    return GeoArea_instance.h7(doPar(flatXY, this));
+    return GeoArea_instance.j7(doPar(flatXY, this));
   };
   protoOf(Geo).areaFromLatLonM2 = function (flatLatLon) {
-    return GeoArea_instance.j7(doPar(flatLatLon, this));
-  };
-  protoOf(Geo).perimeterM = function (flatXY) {
-    return GeoArea_instance.k7(doPar(flatXY, this));
-  };
-  protoOf(Geo).perimeterFromLatLonM = function (flatLatLon) {
     return GeoArea_instance.l7(doPar(flatLatLon, this));
   };
+  protoOf(Geo).perimeterM = function (flatXY) {
+    return GeoArea_instance.m7(doPar(flatXY, this));
+  };
+  protoOf(Geo).perimeterFromLatLonM = function (flatLatLon) {
+    return GeoArea_instance.n7(doPar(flatLatLon, this));
+  };
   protoOf(Geo).projectToMetres = function (flatLatLon) {
-    return doTablicy(GeoArea_instance.i7(doPar(flatLatLon, this)), this);
+    return doTablicy(GeoArea_instance.k7(doPar(flatLatLon, this)), this);
   };
   protoOf(Geo).selfIntersects = function (flatXY) {
-    return PolygonValidity_instance.k8(doPar(flatXY, this));
+    return PolygonValidity_instance.m8(doPar(flatXY, this));
   };
   protoOf(Geo).contains = function (x, y, flatPolygonXY) {
-    return ParcelGeometry_instance.g8(to(x, y), doPar(flatPolygonXY, this));
+    return ParcelGeometry_instance.i8(to(x, y), doPar(flatPolygonXY, this));
   };
   protoOf(Geo).distanceToBoundaryM = function (x, y, flatPolygonXY) {
-    var tmp0_elvis_lhs = ParcelGeometry_instance.h8(to(x, y), doPar(flatPolygonXY, this));
+    var tmp0_elvis_lhs = ParcelGeometry_instance.j8(to(x, y), doPar(flatPolygonXY, this));
     return tmp0_elvis_lhs == null ? -1.0 : tmp0_elvis_lhs;
   };
   protoOf(Geo).intersectionAreaM2 = function (flatA, flatB) {
-    return PolygonIntersection_instance.i8(doPar(flatA, this), doPar(flatB, this));
+    return PolygonIntersection_instance.k8(doPar(flatA, this), doPar(flatB, this));
   };
   protoOf(Geo).fractionInside = function (flatPart, flatWhole) {
-    return PolygonIntersection_instance.j8(doPar(flatPart, this), doPar(flatWhole, this));
+    return PolygonIntersection_instance.l8(doPar(flatPart, this), doPar(flatWhole, this));
   };
   protoOf(Geo).poziomKafli = function (minE, minN, maxE, maxN, metrowNaPiksel) {
-    return TileGrid_instance.d8(new MapBounds(minE, minN, maxE, maxN), metrowNaPiksel);
+    return TileGrid_instance.f8(new MapBounds(minE, minN, maxE, maxN), metrowNaPiksel);
   };
   protoOf(Geo).rozmiarKafla = function (poziom) {
-    return TileGrid_instance.v7(poziom);
+    return TileGrid_instance.x7(poziom);
   };
   protoOf(Geo).pikseliKafla = function () {
     return 1024;
   };
   protoOf(Geo).kafleDlaWidoku = function (minE, minN, maxE, maxN, poziom) {
-    var kafle = TileGrid_instance.y7(new MapBounds(minE, minN, maxE, maxN), poziom);
+    var kafle = TileGrid_instance.a8(new MapBounds(minE, minN, maxE, maxN), poziom);
     var wynik = new Int32Array(imul(kafle.i(), 3));
     // Inline function 'kotlin.collections.forEachIndexed' call
     var index = 0;
@@ -888,16 +941,16 @@
       var tmp1 = index;
       index = tmp1 + 1 | 0;
       var i = checkIndexOverflow(tmp1);
-      wynik[imul(i, 3)] = item.m7_1;
-      wynik[imul(i, 3) + 1 | 0] = item.n7_1;
-      wynik[imul(i, 3) + 2 | 0] = item.o7_1;
+      wynik[imul(i, 3)] = item.o7_1;
+      wynik[imul(i, 3) + 1 | 0] = item.p7_1;
+      wynik[imul(i, 3) + 2 | 0] = item.q7_1;
     }
     return wynik;
   };
   protoOf(Geo).zasiegKafla = function (z, x, y) {
-    var b = (new TileKey(z, x, y)).p7();
+    var b = (new TileKey(z, x, y)).r7();
     // Inline function 'kotlin.doubleArrayOf' call
-    return new Float64Array([b.z7_1, b.a8_1, b.b8_1, b.c8_1]);
+    return new Float64Array([b.b8_1, b.c8_1, b.d8_1, b.e8_1]);
   };
   protoOf(Geo).opisDrzewostanu = function (kod) {
     var tmp0_safe_receiver = ForestStand_getInstance().e7(kod);
@@ -905,6 +958,9 @@
   };
   protoOf(Geo).opisSiedliska = function (kod) {
     return ForestStand_getInstance().f7(kod);
+  };
+  protoOf(Geo).opisLasu = function (etykietaDrzewostanu, kodSiedliska, adresLesny) {
+    return ForestStand_getInstance().h7(etykietaDrzewostanu, kodSiedliska, adresLesny);
   };
   var Geo_instance;
   function Geo_getInstance() {
